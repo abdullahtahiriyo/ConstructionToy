@@ -22,7 +22,7 @@ import os
 import FreeCAD
 import FreeCADGui as Gui
 
-from .features import ViewProviderConstructionToy, plate
+from .features import ViewProviderConstructionToy, plate, separator, washer
 
 
 class BaseCommand(object):
@@ -51,3 +51,32 @@ class CreatePlate(BaseCommand):
         Gui.SendMsgToActiveView("ViewFit")
 
 
+class CreateSeparator(BaseCommand):
+    """creates a construction separator"""
+
+    def GetResources(self):
+        return {'Pixmap': os.path.join(os.path.dirname(__file__),  'icons', 'createseparator.svg'), 
+                'MenuText': 'create separator', 
+                'ToolTip': 'create separator'}  
+
+    def Activated(self):
+        a = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Separator")
+        separator(a)
+        ViewProviderConstructionToy(a.ViewObject)
+        FreeCAD.ActiveDocument.recompute()
+        Gui.SendMsgToActiveView("ViewFit")
+
+class CreateWasher(BaseCommand):
+    """creates a construction washer"""
+
+    def GetResources(self):
+        return {'Pixmap': os.path.join(os.path.dirname(__file__),  'icons', 'createwasher.svg'), 
+                'MenuText': 'create washer', 
+                'ToolTip': 'create washer'}  
+
+    def Activated(self):
+        a = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Washer")
+        washer(a)
+        ViewProviderConstructionToy(a.ViewObject)
+        FreeCAD.ActiveDocument.recompute()
+        Gui.SendMsgToActiveView("ViewFit")

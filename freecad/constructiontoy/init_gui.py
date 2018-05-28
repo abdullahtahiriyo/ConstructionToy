@@ -34,18 +34,22 @@ class constructionToyWorkbench(Workbench):
     ToolTip = "Construction Toy Workbench"
     Icon = os.path.join(__dirname__,  'icons', 'constructiontoyworkbench.svg')
     commands = [
-                "CreatePlate"]
+                "CreatePlate",
+		"CreateSeparator",
+		"CreateWasher"]
 
     def GetClassName(self):
         return "Gui::PythonWorkbench"
 
     def Initialize(self):
 	# imports
-        from .commands import CreatePlate
+        from .commands import CreatePlate, CreateSeparator, CreateWasher
         self.appendToolbar("Construction Toy", self.commands)
         self.appendMenu("Construction Toy", self.commands)
         Gui.addIconPath(App.getHomePath()+"Mod/constructiontoy/icons/")
         Gui.addCommand('CreatePlate', CreatePlate())
+        Gui.addCommand('CreateSeparator', CreateSeparator())
+        Gui.addCommand('CreateWasher', CreateWasher())
 
     def Activated(self):
         pass

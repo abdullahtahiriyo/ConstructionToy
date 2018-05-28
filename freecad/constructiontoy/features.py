@@ -30,11 +30,7 @@ from Part import BSplineCurve, Shape, Wire, Face, makePolygon, \
     BRepOffsetAPI, Shell, makeLoft, Solid, LineSegment, BSplineSurface, makeCompound,\
      show, makePolygon, makeHelix, makeSweepSurface, makeShell, makeSolid
 
-
-
-
-__all__=["plate"]
-
+__all__=["plate", "separator", "washer"]
 
 
 def fcvec(x):
@@ -52,8 +48,7 @@ class ViewProviderConstructionToy:
         self.vobj = vobj
 
     def getIcon(self):
-        __dirname__ = os.path.dirname(__file__)
-        return(os.path.join(__dirname__, "icons", "createplate.svg"))
+        return self.vobj.Object.Proxy.getIcon()
 
     def __getstate__(self):
         return None
@@ -126,6 +121,74 @@ class plate(object):
 
     def __setstate__(self, state):
         return None
+
+    def getIcon(self):
+        __dirname__ = os.path.dirname(__file__)
+        return(os.path.join(__dirname__, "icons", "createplate.svg"))
+
+class separator(object):
+
+    """ Construction Toy plate"""
+
+    def __init__(self, obj):
+        obj.addProperty(
+            "App::PropertyLength", "outerdiameter", "Separator", "outer diameter")
+	obj.addProperty(
+            "App::PropertyLength", "fillet", "Separator", "fillet radius")
+        obj.addProperty(
+            "App::PropertyLength", "height", "Module", "height")
+        obj.addProperty(
+            "App::PropertyLength", "holesize", "Module", "hole diameter")
+
+        obj.height = '32 mm'
+        obj.outerdiameter = '19 mm'
+        obj.holesize = '11 mm'
+	obj.fillet = '1 mm'
+        self.obj = obj
+        obj.Proxy = self
+
+    def execute(self, fp):
+
+    	w = Part.Wire(Part.makeCircle(fp.outerdiameter.Value/2))
+	#hole
+	h = Part.Wire(Part.makeCircle(fp.holesize.Value/2, App.Vector(0, 0, 0), App.Vector(0, 0, -1)))
+
+	face = Part.Face([w, h])
+
+	baseshape = face.extrude(App.Vector(0, 0, fp.height.Value))
+
+	if fp.fillet.Value > 0:
+		borders = []
+		for i in range(1,3):
+			borders.append(baseshape.Edges[i])
+        	fp.Shape = baseshape.makeFillet(fp.fillet.Value, borders)
+	else:
+        	fp.Shape = face.extrude(App.Vector(0, 0, fp.height.Value))
+
+
+    def __getstate__(self):
+        return None
+
+    def __setstate__(self, state):
+        return None
+
+    def getIcon(self):
+        __dirname__ = os.path.dirname(__file__)
+        return(os.path.join(__dirname__, "icons", "createseparator.svg"))
+
+class washer(separator):
+    """ Construction Toy washer"""
+
+    def __init__(self, obj):
+	separator.__init__(self,obj)
+	obj.height = '5 mm'
+	self.obj = obj
+	obj.Proxy = self
+
+    def getIcon(self):
+        __dirname__ = os.path.dirname(__file__)
+        return(os.path.join(__dirname__, "icons", "createwasher.svg"))
+
 
 def helicalextrusion(wire, height, angle, double_helix = False):
     direction = bool(angle < 0)
