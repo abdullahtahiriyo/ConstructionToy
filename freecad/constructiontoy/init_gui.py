@@ -36,20 +36,22 @@ class constructionToyWorkbench(Workbench):
     commands = [
                 "CreatePlate",
 		"CreateSeparator",
-		"CreateWasher"]
+		"CreateWasher",
+		"CreateScrew"]
 
     def GetClassName(self):
         return "Gui::PythonWorkbench"
 
     def Initialize(self):
 	# imports
-        from .commands import CreatePlate, CreateSeparator, CreateWasher
+        from .commands import CreatePlate, CreateSeparator, CreateWasher, CreateScrew
         self.appendToolbar("Construction Toy", self.commands)
         self.appendMenu("Construction Toy", self.commands)
         Gui.addIconPath(App.getHomePath()+"Mod/constructiontoy/icons/")
         Gui.addCommand('CreatePlate', CreatePlate())
         Gui.addCommand('CreateSeparator', CreateSeparator())
         Gui.addCommand('CreateWasher', CreateWasher())
+        Gui.addCommand('CreateScrew', CreateScrew())
 
     def Activated(self):
         pass

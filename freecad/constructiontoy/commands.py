@@ -22,7 +22,7 @@ import os
 import FreeCAD
 import FreeCADGui as Gui
 
-from .features import ViewProviderConstructionToy, plate, separator, washer
+from .features import ViewProviderConstructionToy, plate, separator, washer, screw
 
 
 class BaseCommand(object):
@@ -77,6 +77,21 @@ class CreateWasher(BaseCommand):
     def Activated(self):
         a = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Washer")
         washer(a)
+        ViewProviderConstructionToy(a.ViewObject)
+        FreeCAD.ActiveDocument.recompute()
+        Gui.SendMsgToActiveView("ViewFit")
+
+class CreateScrew(BaseCommand):
+    """creates a construction screw"""
+
+    def GetResources(self):
+        return {'Pixmap': os.path.join(os.path.dirname(__file__),  'icons', 'createscrew.svg'), 
+                'MenuText': 'create screw', 
+                'ToolTip': 'create screw'}  
+
+    def Activated(self):
+        a = FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Screw")
+        screw(a)
         ViewProviderConstructionToy(a.ViewObject)
         FreeCAD.ActiveDocument.recompute()
         Gui.SendMsgToActiveView("ViewFit")

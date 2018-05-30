@@ -20,17 +20,21 @@
 #***************************************************************************
 
 from __future__ import division
-import os
+import os, math
 
 import numpy as np
+import screw_maker2_2
 
 import FreeCAD as App
+
+from FreeCAD import Base
+
 import Part
 from Part import BSplineCurve, Shape, Wire, Face, makePolygon, \
     BRepOffsetAPI, Shell, makeLoft, Solid, LineSegment, BSplineSurface, makeCompound,\
      show, makePolygon, makeHelix, makeSweepSurface, makeShell, makeSolid
 
-__all__=["plate", "separator", "washer"]
+__all__=["plate", "separator", "washer", "screw"]
 
 
 def fcvec(x):
@@ -189,45 +193,193 @@ class washer(separator):
         __dirname__ = os.path.dirname(__file__)
         return(os.path.join(__dirname__, "icons", "createwasher.svg"))
 
+class screw(object):
 
-def helicalextrusion(wire, height, angle, double_helix = False):
-    direction = bool(angle < 0)
-    if double_helix:
-        first_spine = makeHelix(height * 2. * np.pi / abs(angle), 0.5 * height, 10., 0, direction)
-        first_solid = first_spine.makePipeShell([wire], True, True)
-        second_solid = first_solid.mirror(fcvec([0.,0.,0.]), fcvec([0,0,1]))
-        faces = first_solid.Faces + second_solid.Faces
-        faces = [f for f in faces if not on_mirror_plane(f, 0., fcvec([0., 0., 1.]))]
-        solid = makeSolid(makeShell(faces))
-        mat = App.Matrix()
-        mat.move(fcvec([0, 0, 0.5 * height]))
-        return solid.transformGeometry(mat)
-    else:
-        first_spine = makeHelix(height * 2 * np.pi / abs(angle), height, 10., 0, direction)
-        first_solid = first_spine.makePipeShell([wire], True, True)
-        return first_solid
+    """ Construction Toy screw"""
 
+    def __init__(self, obj):
+        obj.addProperty(
+            "App::PropertyLength", "height", "Screw", "length")
+        obj.addProperty(
+            "App::PropertyLength", "shanklength", "Screw", "shank length")
+        obj.addProperty(
+            "App::PropertyLength", "screwdiameter", "Screw", "diameter")
+        obj.addProperty(
+            "App::PropertyLength", "screwpitch", "Screw", "pitch")
+        obj.addProperty(
+            "App::PropertyBool", "chamfer", "Screw", "chamfer thread")
+	obj.addProperty(
+            "App::PropertyLength", "fillet", "Screw", "fillet radius")
+        obj.addProperty(
+            "App::PropertyLength", "outerdiameter", "Screw Head", "outer diameter")
+        obj.addProperty(
+            "App::PropertyLength", "headheight", "Screw Head", "height")
+        obj.addProperty(
+            "App::PropertyLength", "internaldiameter", "Screw Head", "cross hole diameter")
+        obj.addProperty(
+            "App::PropertyLength", "crosswidth", "Screw Head", "cross slot width")
+        obj.addProperty(
+            "App::PropertyLength", "crossdepth", "Screw Head", "cross slot depth")
 
-def make_face(edge1, edge2):
-    v1, v2 = edge1.Vertexes
-    v3, v4 = edge2.Vertexes
-    e1 = Wire(edge1)
-    e2 = Line(v1.Point, v3.Point).toShape().Edges[0]
-    e3 = edge2
-    e4 = Line(v4.Point, v2.Point).toShape().Edges[0]
-    w = Wire([e3, e4, e1, e2])
-    return(Face(w))
+	obj.height = '30 mm'
+	obj.shanklength = '0 mm'
+	obj.screwdiameter = '9.4 mm'
+	obj.screwpitch = '2 mm'
+	obj.fillet = '1 mm'
+	obj.outerdiameter = '18.5 mm'
+	obj.headheight = '8 mm'
+	obj.internaldiameter = '9.4 mm'
+	obj.crosswidth = '3 mm'
+	obj.crossdepth = '4 mm'
+	obj.chamfer = True
 
+        self.Tuner = 510
 
-def makeBSplineWire(pts):
-    wi = []
-    for i in pts:
-        out = BSplineCurve()
-        out.interpolate(list(map(fcvec, i)))
-        wi.append(out.toShape())
-    return Wire(wi)
+        self.obj = obj
+        obj.Proxy = self
 
-def on_mirror_plane(face, z, direction, small_size=0.000001):
-    # the tolerance is very high. Maybe there is a bug in Part.makeHelix.
-    return (face.normalAt(0, 0).cross(direction).Length < small_size and
-            abs(face.CenterOfMass.z - z)  < small_size)
+    def execute(self, fp):
+
+  	o = screw_maker2_2.Screw()
+  	t = screw_maker2_2.Screw.setThreadType(o,'real')
+
+	l = fp.height.Value
+	P = fp.screwpitch.Value;
+	c = 0.5
+	dia = fp.screwdiameter.Value;
+	dw = 1.5 * dia
+	e = fp.outerdiameter.Value;
+	k = fp.headheight.Value;
+	r = 0.5
+	s = 0.9 * e
+
+    	residue, turns = math.modf((l-1*P)/P)
+      	halfturns = 2*int(turns)
+
+    	if residue < 0.5:
+      		a = l - (turns+1.0) * P 
+      		halfturns = halfturns +1
+    	else:
+      		halfturns = halfturns + 2
+      		a = l - (turns+2.0) * P
+
+	offSet = r - a
+
+    	sqrt2_ = 1.0/math.sqrt(2.0)
+    	cham = (e-s)*math.sin(math.radians(15)) # needed for chamfer at head top
+
+    	#Head Points  Usage of k, s, cham, c, dw, dia, r, a
+    	#FreeCAD.Console.PrintMessage("der Kopf mit halfturns: " + str(halfturns) + "\n")
+    	Pnt0 = Base.Vector(0.0,0.0,k)
+    	Pnt2 = Base.Vector(s/2.0,0.0,k)
+    	Pnt3 = Base.Vector(s/math.sqrt(3.0),0.0,k-cham)
+    	Pnt4 = Base.Vector(s/math.sqrt(3.0),0.0,c)
+    	Pnt5 = Base.Vector(dw/2.0,0.0,c)
+    	Pnt6 = Base.Vector(dw/2.0,0.0,0.0)
+    	Pnt7 = Base.Vector(dia/2.0+r,0.0,0.0)     #start of fillet between head and shank
+    	Pnt8 = Base.Vector(dia/2.0+r-r*sqrt2_,0.0,-r+r*sqrt2_) #arc-point of fillet
+    	Pnt9 = Base.Vector(dia/2.0,0.0,-r)        # end of fillet
+    	Pnt10 = Base.Vector(dia/2.0,0.0,-a)        # Start of thread
+
+    	edge1 = Part.makeLine(Pnt0,Pnt2)
+    	edge2 = Part.makeLine(Pnt2,Pnt3)
+    	edge3 = Part.makeLine(Pnt3,Pnt4)
+    	edge4 = Part.makeLine(Pnt4,Pnt5)
+    	edge5 = Part.makeLine(Pnt5,Pnt6)
+    	edge6 = Part.makeLine(Pnt6,Pnt7)
+    	edge7 = Part.Arc(Pnt7,Pnt8,Pnt9).toShape()
+
+    	# create cutting tool for hexagon head
+    	# Parameters s, k, outer circle diameter =  e/2.0+10.0
+    	#extrude = self.makeHextool(s, k, s*2.0)
+
+    	extrude = screw_maker2_2.Screw.makeHextool(o, s, k, s*2.0)
+
+    	#if self.RealThread.isChecked():
+    	if o.rThread:
+		Pnt11 = Base.Vector(0.0,0.0,-r)        # helper point for real thread
+      		edgeZ1 = Part.makeLine(Pnt9,Pnt11)
+      		edgeZ0 = Part.makeLine(Pnt11,Pnt0)
+      		aWire=Part.Wire([edge1,edge2,edge3,edge4,edge5,edge6,edge7, \
+          		edgeZ1, edgeZ0])
+
+      		aFace =Part.Face(aWire)
+      		head = aFace.revolve(Base.Vector(0.0,0.0,0.0),Base.Vector(0.0,0.0,1.0),360.0)
+      		#FreeCAD.Console.PrintMessage("der Kopf mit revolve: " + str(dia) + "\n")
+
+      		# Part.show(extrude)
+      		head = head.cut(extrude)
+      		#FreeCAD.Console.PrintMessage("der Kopf geschnitten: " + str(dia) + "\n")
+      		#Part.show(head)
+
+      		headFaces = []
+      		for i in range(18):
+        		headFaces.append(head.Faces[i])
+
+      		if (dia < 3.0) or (dia > 5.0):
+        		rthread = o.makeShellthread(dia, P, halfturns, True, offSet)
+        		rthread.translate(Base.Vector(0.0, 0.0,-a-2.0*P))
+        		#rthread.translate(Base.Vector(0.0, 0.0,-2.0*P))
+        		#Part.show(rthread)
+        		for tFace in rthread.Faces:
+          			headFaces.append(tFace)
+        		headShell = Part.Shell(headFaces)
+        		head = Part.Solid(headShell)
+      		else:
+        		rthread = o.makeShellthread(dia, P, halfturns, False, offSet)
+        		rthread.translate(Base.Vector(0.0, 0.0,-a-2.0*P))
+        		#rthread.translate(Base.Vector(0.0, 0.0,-2.0*P))
+        		#Part.show(rthread)
+        		for tFace in rthread.Faces:
+          			headFaces.append(tFace)
+        		headShell = Part.Shell(headFaces)
+        		head = Part.Solid(headShell)
+        		cyl = o.cutChamfer(dia, P, l)
+        		#FreeCAD.Console.PrintMessage("vor Schnitt Ende: " + str(dia) + "\n")
+        		head = head.cut(cyl)
+
+    	else:
+      		# bolt points
+      		cham_t = P*math.sqrt(3.0)/2.0*17.0/24.0
+
+      		PntB0 = Base.Vector(0.0,0.0,-a)
+      		PntB1 = Base.Vector(dia/2.0,0.0,-l+cham_t)
+      		PntB2 = Base.Vector(dia/2.0-cham_t,0.0,-l)
+      		PntB3 = Base.Vector(0.0,0.0,-l)
+
+      		edgeB1 = Part.makeLine(Pnt10,PntB1)
+      		edgeB2 = Part.makeLine(PntB1,PntB2)
+      		edgeB3 = Part.makeLine(PntB2,PntB3)
+
+      		edgeZ0 = Part.makeLine(PntB3,Pnt0)
+      		if a <= r:
+        		edgeB1 = Part.makeLine(Pnt9,PntB1)
+        		aWire=Part.Wire([edge1,edge2,edge3,edge4,edge5,edge6,edge7, \
+            			edgeB1, edgeB2, edgeB3, edgeZ0])
+
+      		else:
+        		edge8 = Part.makeLine(Pnt9,Pnt10)
+        		edgeB1 = Part.makeLine(Pnt10,PntB1)
+        		aWire=Part.Wire([edge1,edge2,edge3,edge4,edge5,edge6,edge7,edge8, \
+            			edgeB1, edgeB2, edgeB3, edgeZ0])
+
+      		aFace =Part.Face(aWire)
+      		head = aFace.revolve(Base.Vector(0.0,0.0,0.0),Base.Vector(0.0,0.0,1.0),360.0)
+      		#FreeCAD.Console.PrintMessage("der Kopf mit revolve: " + str(dia) + "\n")
+
+      		# Part.show(extrude)
+      		head = head.cut(extrude)
+      		#FreeCAD.Console.PrintMessage("der Kopf geschnitten: " + str(dia) + "\n")
+
+	fp.Shape = head # Part.Solid(head)
+
+    def __getstate__(self):
+        return None
+
+    def __setstate__(self, state):
+        return None
+
+    def getIcon(self):
+        __dirname__ = os.path.dirname(__file__)
+        return(os.path.join(__dirname__, "icons", "createscrew.svg"))
+
